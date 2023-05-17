@@ -6,10 +6,11 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/sferawann/go-auth-jwt/auth"
 )
 
 // nantiterapkan env
-var jwtKey = []byte("SECRET_KEY_BEBAS")
+var jwtKey = "SECRET_KEY"
 
 type User struct {
 	ID       int    `json:"id"`
@@ -27,31 +28,10 @@ func main() {
 	userRouter := r.Group("api/v1/users")
 
 	//middleware
-	userRouter.Use(authMiddleware())
+	userRouter.Use(auth.AuthMiddleware(jwtKey))
 	userRouter.GET("/:id/profile", profileHandler)
 	//start server
 	r.Run(":8080")
-}
-
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		tokenStr := c.GetHeader("Authorization")
-		if tokenStr == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			c.Abort()
-			return
-		}
-
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) { return jwtKey, nil })
-		if !token.Valid || err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			c.Abort()
-			return
-		}
-		claims := token.Claims.(jwt.MapClaims)
-		c.Set("claims", claims)
-		c.Next()
-	}
 }
 
 func loginHandler(c *gin.Context) {
@@ -63,22 +43,23 @@ func loginHandler(c *gin.Context) {
 
 	//logic authentication(compare username dan password)
 	if user.Username == "arul" && user.Password == "arul" {
-		//bikin code untuk generate token
+		// bikin code untuk generate token
 		token := jwt.New(jwt.SigningMethodHS256)
 
 		claims := token.Claims.(jwt.MapClaims)
 
 		claims["username"] = user.Username
-		claims["exp"] = time.Now().Add(time.Minute * 1).Unix()
+		claims["exp"] = time.Now().Add(time.Minute * 1).Unix() // token akan expired dalam 1 menit
 
 		tokenStr, err := token.SignedString(jwtKey)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token!"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"token": tokenStr})
+
+		c.JSON(http.StatusOK, gin.H{"token": tokenStr}) // jika login berhasil, dapatkan token string
 	} else {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials!"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 	}
 
 }
